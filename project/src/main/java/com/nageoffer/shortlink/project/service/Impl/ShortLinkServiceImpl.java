@@ -41,9 +41,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
-import static com.nageoffer.shortlink.project.common.constant.RedisKeyConstant.GOTO_SHORT_LINK_KEY;
-import static com.nageoffer.shortlink.project.common.constant.RedisKeyConstant.LOCK_GOTO_SHORT_LINK_KEY;
+import static com.nageoffer.shortlink.project.common.constant.RedisKeyConstant.*;
 
 /**
  * 短链接接口实现层
@@ -214,6 +214,17 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             return;  // 直接结束，后续逻辑不再执行
         }
 
+        boolean contains = shortUriCreateCachePenetrationBloomFilter.contains(fullShortUrl); // 判断短链接是否在布隆过滤器中
+        if (!contains) { // 如果布隆过滤器中不包含该短链接
+            return; // 直接返回，不进行后续处理
+        }
+
+        String gotoIsNullShortLink = stringRedisTemplate.opsForValue()
+                .get(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl)); // 尝试从 Redis 获取对应的原始链接
+        if (StrUtil.isNotBlank(gotoIsNullShortLink)){ // 如果 Redis 中有数据，说明这个短链接之前被访问过，直接 302 跳转，无需查 DB
+            return;
+        }
+
         // ==================== 4. 缓存未命中 → 加分布式锁 ====================
         // 获取一把基于 Redis 的分布式锁，key 如：short-link_lock_goto_s.naoffer.com/abc123
         // 为什么需要锁？防止缓存击穿——
@@ -253,6 +264,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
             // 路由表中也没有 → 说明这个短链接不存在（可能是恶意扫描或瞎编的）
             if (shortLinkGotoDO == null) {
+                stringRedisTemplate.opsForValue().set(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl),"-",30, TimeUnit.MINUTES); // 将不存在的短链接缓存 30 分钟
                 // 严谨来说此处需要对不存在的短链接做风控/限流
                 return;
             }
