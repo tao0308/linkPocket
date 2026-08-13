@@ -21,7 +21,6 @@ public class ShortLinkController {
     /**
      * 后续重构为SpringCloud Feign调用
      */
-
     ShortLinkRemoteService shortLinkRemoteService = new ShortLinkRemoteService() {
     };
 

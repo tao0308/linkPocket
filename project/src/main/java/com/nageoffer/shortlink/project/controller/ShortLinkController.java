@@ -28,6 +28,10 @@ public class ShortLinkController {
 
     private final ShortLinkService shortLinkService;
 
+
+    /**
+     * 短链接跳转原始链接
+     */
     @GetMapping("/{short-uri}")
     public void restoreUrl(@PathVariable("short-uri") String shortUri, ServletRequest request, ServletResponse response){
         shortLinkService.restoreUrl(shortUri,request,response);
