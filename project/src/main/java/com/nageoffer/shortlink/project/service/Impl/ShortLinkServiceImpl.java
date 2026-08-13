@@ -39,6 +39,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -97,7 +98,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             }
         }
         stringRedisTemplate.opsForValue().set(
-                fullShortUrl,
+                String.format(GOTO_SHORT_LINK_KEY, fullShortUrl),
                 requestParam.getOriginUrl(),
                 LinkUtil.getLinkCacheValidTime(requestParam.getValidDate()), TimeUnit.MILLISECONDS
         );//缓存预热
@@ -292,12 +293,20 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 查到了有效的短链接记录
             if (shortLinkDO != null) {
 
+                if(shortLinkDO.getValidDate() != null && shortLinkDO.getValidDate().before(new Date())) {
+                    stringRedisTemplate.opsForValue().set(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl),"-",30, TimeUnit.MINUTES); // 将不存在的短链接缓存 30 分钟
+                    return;
+                }
+
+
                 // 6.3 将原始链接写入 Redis 缓存（缓存预热）
                 // 这样下次再有人访问同一个短链接，直接从 Redis 拿，不用再查 DB
+
                 stringRedisTemplate.opsForValue().set(
-                        String.format(GOTO_SHORT_LINK_KEY, fullShortUrl),   // key
-                        shortLinkDO.getOriginUrl()                          // value: 原始 URL
-                );
+                        String.format(GOTO_SHORT_LINK_KEY, fullShortUrl),
+                        shortLinkDO.getOriginUrl(),
+                        LinkUtil.getLinkCacheValidTime(shortLinkDO.getValidDate()), TimeUnit.MILLISECONDS
+                );//缓存预热
 
                 // 6.4 发送 HTTP 302 临时重定向
                 // 浏览器收到 302 响应后会自动跳转到原始 URL
