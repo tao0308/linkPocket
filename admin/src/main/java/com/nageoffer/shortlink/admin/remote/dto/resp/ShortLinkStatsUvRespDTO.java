@@ -1,4 +1,4 @@
-package com.nageoffer.shortlink.admin.dto.resp;
+package com.nageoffer.shortlink.admin.remote.dto.resp;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -6,13 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 短链接访问网络监控响应参数
+ * 短链接访客监控响应参数
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ShortLinkStatsNetworkRespDTO {
+public class ShortLinkStatsUvRespDTO {
 
     /**
      * 统计
@@ -20,9 +20,9 @@ public class ShortLinkStatsNetworkRespDTO {
     private Integer cnt;
 
     /**
-     * 访问网络
+     * 访客类型
      */
-    private String network;
+    private String uvType;
 
     /**
      * 占比
