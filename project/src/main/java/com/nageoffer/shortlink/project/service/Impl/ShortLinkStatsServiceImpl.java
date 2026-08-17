@@ -3,6 +3,7 @@ package com.nageoffer.shortlink.project.service.Impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
 import com.nageoffer.shortlink.project.dao.entity.LinkAccessStatsDO;
 import com.nageoffer.shortlink.project.dao.entity.LinkDeviceStatsDO;
 import com.nageoffer.shortlink.project.dao.entity.LinkLocaleStatsDO;
@@ -34,6 +35,10 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
 
     @Override
     public ShortLinkStatsRespDTO oneShortLinkStats(ShortLinkStatsReqDTO requestParam) {
+        // 兼容 datetime 字段查询：endDate 补到当天 23:59:59，避免当天数据被 BETWEEN 漏掉
+        if (StrUtil.isNotBlank(requestParam.getEndDate()) && !requestParam.getEndDate().contains(" ")) {
+            requestParam.setEndDate(requestParam.getEndDate() + " 23:59:59");
+        }
         List<LinkAccessStatsDO> listStatsByShortLink = linkAccessStatsMapper.listStatsByShortLink(requestParam);
         if (CollUtil.isEmpty(listStatsByShortLink)) {
             return null;
