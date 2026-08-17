@@ -3,6 +3,8 @@ package com.nageoffer.shortlink.project.toolkit;
 
 import cn.hutool.core.date.DateUnit;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
+import com.nageoffer.shortlink.project.common.enums.NetworkTypeEnum;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Date;
@@ -110,5 +112,47 @@ public class LinkUtil {
             return "Mobile";
         }
         return "PC";
+    }
+
+    /**
+     * 获取用户访问网络类型（WiFi / 流量数据 / 有线 / 未知）
+     * <p>
+     * 说明：服务端无法 100% 可靠地区分 WiFi 与流量，该信息只存在于用户设备上，
+     * 因此按两级策略获取：
+     * <ol>
+     *   <li>优先读取前端通过 Network Information API 上报的准确值
+     *       （请求头 X-Network-Type 或请求参数 networkType）；</li>
+     *   <li>未上报时做弱推断：移动设备（手机/平板）WiFi 与流量无法区分，返回 unknown；
+     *       非移动设备（PC 等）几乎不存在蜂窝流量，按 wifi 处理。</li>
+     * </ol>
+     *
+     * @param request 请求
+     * @return 网络类型：wifi / cellular / ethernet / unknown
+     */
+    public static String getNetwork(HttpServletRequest request) {
+        // 1. 优先读取前端上报的准确网络类型
+        String networkType = request.getHeader("X-Network-Type");
+        if (StrUtil.isNotBlank(networkType)) {
+            return NetworkTypeEnum.of(networkType).getType();
+        }
+        networkType = request.getParameter("networkType");
+        if (StrUtil.isNotBlank(networkType)) {
+            return NetworkTypeEnum.of(networkType).getType();
+        }
+
+        // 2. 兜底弱推断：只能区分设备类型，无法真正区分 WiFi 与流量
+        String userAgent = request.getHeader("User-Agent");
+        if (StrUtil.isBlank(userAgent)) {
+            return NetworkTypeEnum.UNKNOWN.getType();
+        }
+        String ua = userAgent.toLowerCase();
+        boolean mobileDevice = ua.contains("iphone") || ua.contains("ipad")
+                || ua.contains("android") || ua.contains("mobile");
+        if (mobileDevice) {
+            // 手机/平板既可能是 WiFi 也可能是流量，服务端无法区分
+            return NetworkTypeEnum.UNKNOWN.getType();
+        }
+        // PC 端基本不存在蜂窝流量，统一按 WiFi 处理
+        return NetworkTypeEnum.WIFI.getType();
     }
 }
