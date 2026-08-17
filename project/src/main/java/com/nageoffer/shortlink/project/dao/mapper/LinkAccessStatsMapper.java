@@ -59,7 +59,7 @@ public interface LinkAccessStatsMapper extends BaseMapper<LinkAccessStatsDO> {
     List<LinkAccessStatsDO> listHourStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
 
     /**
-     * 根据短链接获取指定日期内小时基础监控数据
+     * 根据短链接获取指定日期星期几基础监控数据
      */
     @Select("SELECT " +
             "    weekday, " +
