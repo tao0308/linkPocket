@@ -73,4 +73,6 @@ public interface LinkAccessStatsMapper extends BaseMapper<LinkAccessStatsDO> {
             "GROUP BY " +
             "    full_short_url, gid, weekday;")
     List<LinkAccessStatsDO> listWeekdayStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
+
+
 }

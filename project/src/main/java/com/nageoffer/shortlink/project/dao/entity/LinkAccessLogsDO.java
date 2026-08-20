@@ -69,5 +69,19 @@ public class LinkAccessLogsDO extends BaseDO {
      */
     private String locale;
 
+    /**
+     * 访问量
+     */
+    private Integer pv;
+
+    /**
+     * 独立访客数
+     */
+    private Integer uv;
+
+    /**
+     * 独立IP数
+     */
+    private Integer uip;
 
 }
