@@ -1,6 +1,7 @@
 package com.nageoffer.shortlink.project.dao.entity;
 
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.nageoffer.shortlink.project.common.database.BaseDO;
 import lombok.AllArgsConstructor;
@@ -72,16 +73,19 @@ public class LinkAccessLogsDO extends BaseDO {
     /**
      * 访问量
      */
+    @TableField(exist = false)
     private Integer pv;
 
     /**
      * 独立访客数
      */
+    @TableField(exist = false)
     private Integer uv;
 
     /**
      * 独立IP数
      */
+    @TableField(exist = false)
     private Integer uip;
 
 }
