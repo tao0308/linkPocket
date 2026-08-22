@@ -41,6 +41,26 @@ public class Result<T> implements Serializable {
      */
     private String requestId;
 
+    public Result<T> setCode(String code) {
+        this.code = code;
+        return this;
+    }
+
+    public Result<T> setMessage(String message) {
+        this.message = message;
+        return this;
+    }
+
+    public Result<T> setData(T data) {
+        this.data = data;
+        return this;
+    }
+
+    public Result<T> setRequestId(String requestId) {
+        this.requestId = requestId;
+        return this;
+    }
+
     public boolean isSuccess() {
         return SUCCESS_CODE.equals(code);
     }
