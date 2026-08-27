@@ -575,14 +575,23 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         URL targetUrl = new URL(url);
         HttpURLConnection connection = (HttpURLConnection) targetUrl.openConnection();
         connection.setRequestMethod("GET");
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(5000);
         connection.connect();
         int responseCode = connection.getResponseCode();
         if (HttpURLConnection.HTTP_OK == responseCode) {
             Document document = Jsoup.connect(url).get();
-            Element faviconLink = document.select("link[rel~=(?i)^(shortcut )?icon]").first();
-            if(faviconLink != null){
-                return faviconLink.attr("abs:href") ;
+            Element faviconLink = document.select("link[rel~=icon]").first();
+            if (faviconLink == null) {
+                faviconLink = document.select("link[rel=apple-touch-icon]").first();
             }
+            if (faviconLink != null) {
+                return faviconLink.attr("abs:href");
+            }
+            // 兜底：未声明 <link rel="icon"> 时，默认取域名根目录下的 favicon.ico
+            return targetUrl.getProtocol() + "://" + targetUrl.getHost() + "/favicon.ico";
         }
         return null;
     }

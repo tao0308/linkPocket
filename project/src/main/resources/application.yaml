@@ -41,6 +41,9 @@ short-link:
         - deepseek.com
         - wx.zsxq.com
         - bilibili.com
+        - zhipin.com
+        - yuque.com
+        - github.com
 
 mybatis-plus:
   configuration:
