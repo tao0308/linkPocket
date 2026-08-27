@@ -82,7 +82,7 @@ export default {
     return http({
       method: 'get',
       params: data,
-      url: 'stats/access-record'
+      url: 'access-record'
     })
   }
 }

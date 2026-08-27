@@ -52,7 +52,7 @@ export default {
     return http({
       method: 'get',
       params: data,
-      url: 'stats/access-record/group'
+      url: 'access-record/group'
     })
   }
 }

@@ -332,7 +332,7 @@ const getUrl4 = (img) => {
     return wifi
   }
 }
-const dateValue = ref([getLastWeekFormatDate(), getTodayFormatDate()])
+const dateValue = ref([getLastWeekFormatDate().slice(0, 10), getTodayFormatDate().slice(0, 10)])
 const emit = defineEmits(['changeTime', 'changePage'])
 watch(
   () => dateValue.value,
@@ -401,7 +401,7 @@ const handleClose = () => {
   dateValue.value = null
   unVisible()
   showPane.value = '访问数据'
-  dateValue.value = [getLastWeekFormatDate(), getTodayFormatDate()]
+  dateValue.value = [getLastWeekFormatDate().slice(0, 10), getTodayFormatDate().slice(0, 10)]
   document.querySelector('.scroll-box').scrollTop = 0
 }
 const isVisible = () => {
