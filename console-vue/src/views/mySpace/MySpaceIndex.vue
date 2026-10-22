@@ -370,7 +370,7 @@
         @updatePage="updatePage" @cancel="coverEditLink"></EditLink>
     </el-dialog>
     <!-- 批量创建短链弹框 -->
-    <el-dialog @close="afterAddLink" v-model="isAddSmallLinks" title="批量链接">
+    <el-dialog @close="afterAddLink" v-model="isAddSmallLinks" title="批量链接" width="min(760px, 94vw)">
       <CreateLinks ref="createLink2Ref" :groupInfo="editableTabs" @onSubmit="addLink" @cancel="cancelAddLink"
         :defaultGid="pageParams.gid"></CreateLinks>
     </el-dialog>

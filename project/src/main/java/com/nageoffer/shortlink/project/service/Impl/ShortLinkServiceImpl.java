@@ -27,8 +27,6 @@ import com.nageoffer.shortlink.project.dto.req.ShortLinkUpdateReqDTO;
 import com.nageoffer.shortlink.project.dto.resp.*;
 import com.nageoffer.shortlink.project.mq.producer.ShortLinkStatsSaveProducer;
 import com.nageoffer.shortlink.project.service.LinkStatsTodayService;
-import com.nageoffer.shortlink.project.service.FaviconService;
-import com.nageoffer.shortlink.project.service.CreatorIdentityService;
 import com.nageoffer.shortlink.project.toolkit.DomainPolicy;
 import com.nageoffer.shortlink.project.service.ShortLinkService;
 import com.nageoffer.shortlink.project.toolkit.HashUtil;
@@ -81,8 +79,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final LinkStatsTodayService linkStatsTodayService;
     private final ShortLinkStatsSaveProducer shortLinkStatsSaveProducer;
     private final GotoDomainWhiteListConfiguration gotoDomainWhiteListConfiguration;
-    private final FaviconService faviconService;
-    private final CreatorIdentityService creatorIdentityService;
+    private final FaviconServiceImpl faviconService;
+    private final CreatorIdentityServiceImpl creatorIdentityService;
 
     @Value("${short-link.domain.default}")
     private String createShortLinkDefaultDomain;
@@ -145,9 +143,16 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         creatorIdentityService.currentUsername();
         List<String> originUrls = requestParam.getOriginUrls();
         List<String> describes = requestParam.getDescribes();
-        if (originUrls == null || describes == null || originUrls.isEmpty() || originUrls.size() > 100
+        if (originUrls == null || describes == null || originUrls.isEmpty() || originUrls.size() > 10
                 || originUrls.size() != describes.size()) {
-            throw new ClientException("跳转链接与描述数量必须一致，每批支持 1–100 条");
+            throw new ClientException("跳转链接与标题数量必须一致，每批支持 1–10 条");
+        }
+        for (int i = 0; i < originUrls.size(); i++) {
+            if (originUrls.get(i) == null || describes.get(i) == null || describes.get(i).isBlank()
+                    || describes.get(i).length() > 100) {
+                throw new ClientException("每条短链接都需要填写不超过 100 字的标题");
+            }
+            verificationWhitelist(originUrls.get(i));
         }
         List<ShortLinkBaseInfoRespDTO> result = new ArrayList<>();
         for (int i = 0; i < originUrls.size(); i++) {

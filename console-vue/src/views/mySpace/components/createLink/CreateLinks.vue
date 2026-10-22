@@ -1,344 +1,213 @@
 <template>
-  <div>
-    <el-form ref="ruleFormRef" :model="formData" :rules="formRule" label-width="80px">
-      <el-form-item label="跳转链接" prop="originUrls">
-        <el-input
-          :rows="4"
-          v-model="formData.originUrls"
-          type="textarea"
-          placeholder="请输入http://或https://开头的链接或应用跳转链接，一行一个，最多100行"
-        />
-        <span style="font-size: 12px">{{ originUrlRows + '/' + maxDescribeRows }}</span>
-      </el-form-item>
-      <el-form-item label="描述信息" prop="describes">
-        <el-input
-          v-loading="isLoading"
-          :rows="4"
-          v-model="formData.describes"
-          type="textarea"
-          placeholder="请输入描述信息，一行一个，描述信息行数请与链接行数相等"
-        />
-        <span style="font-size: 12px">{{ describeRows + '/' + maxDescribeRows }}</span>
-      </el-form-item>
-      <el-form-item label="短链分组" prop="gid">
-        <el-select v-model="formData.gid" placeholder="请选择">
-          <el-option
-            v-for="item in groupInfo"
-            :key="item.gid"
-            :label="item.name"
-            :value="item.gid"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="有效期" prop="v">
-        <el-radio-group v-model="formData.validDateType">
-          <el-radio :label="0">永久</el-radio>
-          <el-radio :label="1">自定义</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item v-if="formData.validDateType === 1" label="选择时间">
-        <el-date-picker
-          :disabled-date="disabledDate"
-          v-model="formData.validDate"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          type="datetime"
-          placeholder="选择日期"
-          :shortcuts="shortcuts"
-        />
-        <span class="alert">链接失效后将自动跳转到404页面 !</span>
-      </el-form-item>
-      <el-form-item>
-        <div style="width: 100%; display: flex; justify-content: flex-end">
-          <el-button
-            class="buttons"
-            type="primary"
-            :disabled="submitDisable"
-            @click="onSubmit(ruleFormRef)"
-            >确认</el-button
-          >
-          <el-button class="buttons" @click="cancel">取消</el-button>
+  <el-form ref="ruleFormRef" :model="formData" :rules="formRule" label-width="80px" class="batch-form">
+    <el-form-item label="跳转链接" prop="originUrls">
+      <el-input v-model="formData.originUrls" type="textarea" :rows="5"
+        placeholder="粘贴网站链接，一行一个，最多 10 条（http:// 或 https://）" />
+      <div class="input-hint" :class="{ 'over-limit': originUrls.length > MAX_BATCH_LINKS }">
+        <span>{{ originUrls.length > MAX_BATCH_LINKS ? '每批最多 10 条，请删除多余链接' : '输入后自动获取每个网站的标题和图标；标题可在下方修改' }}</span>
+        <strong>{{ originUrls.length }} / {{ MAX_BATCH_LINKS }}</strong>
+      </div>
+    </el-form-item>
+
+    <el-form-item v-if="entries.length" label="网站预览" class="preview-item">
+      <div class="preview-list">
+        <div v-for="(entry, index) in entries" :key="entry.key" class="preview-row">
+          <span class="preview-index">{{ index + 1 }}</span>
+          <WebsiteIcon :origin-url="entry.url" :size="32" />
+          <div class="preview-detail">
+            <el-input v-model="entry.title" maxlength="100" :aria-label="`第 ${index + 1} 条短链标题`"
+              :placeholder="entry.loading ? '正在获取标题…' : '请输入网站标题'"
+              @input="entry.edited = true" />
+            <span class="preview-url" :title="entry.url">{{ entry.url }}</span>
+          </div>
+          <span class="preview-state" aria-live="polite">{{ entry.loading ? '获取中' : entry.failed ? '可手动修改' : '' }}</span>
         </div>
-      </el-form-item>
-    </el-form>
-  </div>
+      </div>
+    </el-form-item>
+
+    <el-form-item label="短链分组" prop="gid">
+      <el-select v-model="formData.gid" placeholder="请选择分组">
+        <el-option v-for="item in groupInfo" :key="item.gid" :label="item.name" :value="item.gid" />
+      </el-select>
+    </el-form-item>
+    <el-form-item label="有效期">
+      <el-radio-group v-model="formData.validDateType">
+        <el-radio :label="0">永久</el-radio>
+        <el-radio :label="1">自定义</el-radio>
+      </el-radio-group>
+    </el-form-item>
+    <el-form-item v-if="formData.validDateType === 1" label="选择时间" prop="validDate">
+      <el-date-picker v-model="formData.validDate" :disabled-date="disabledDate"
+        value-format="YYYY-MM-DD HH:mm:ss" type="datetime" placeholder="选择日期" :shortcuts="shortcuts" />
+      <span class="alert">链接失效后将自动跳转到 404 页面</span>
+    </el-form-item>
+    <el-form-item>
+      <div class="actions">
+        <el-button type="primary" :loading="submitting" :disabled="hasPendingTitles || originUrls.length > MAX_BATCH_LINKS"
+          @click="onSubmit">创建并下载 Excel</el-button>
+        <el-button @click="cancel">取消</el-button>
+      </div>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, nextTick, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useStore } from 'vuex'
+import WebsiteIcon from '@/components/WebsiteIcon.vue'
 import { isWebsiteUrl } from '@/utils/websiteUrl.mjs'
 
-const store = useStore()
-const defaultDomain = store.state.domain ?? ' '
-const props = defineProps({
-  groupInfo: Array,
-  defaultGid: String
-})
-const { proxy } = getCurrentInstance()
-const API = proxy.$API
-// url的校验规则
-const reg = { test: isWebsiteUrl }
-// 自定义时间中选择几天
-const shortcuts = [
-  {
-    text: '一天',
-    value: () => {
-      const date = new Date()
-      date.setTime(date.getTime() + 3600 * 1000 * 24)
-      return date
-    }
-  },
-  {
-    text: '七天',
-    value: () => {
-      const date = new Date()
-      date.setTime(date.getTime() + 3600 * 1000 * 24 * 7)
-      return date
-    }
-  },
-  {
-    text: '三十天',
-    value: () => {
-      const date = new Date()
-      date.setTime(date.getTime() + 3600 * 1000 * 24 * 30)
-      return date
-    }
-  }
-]
-// eslint-disable-next-line vue/no-dupe-keys
-const groupInfo = ref()
-const formData = reactive({
-  domain: defaultDomain,
-  originUrls: null,
-  gid: null,
-  createdType: 1,
-  validDate: null,
-  describes: null,
-  validDateType: 0
-})
-const initFormData = () => {
-  formData.domain = defaultDomain
-  formData.originUrls = null
-  formData.createdType = 1
-  formData.validDate = null
-  formData.describes = null
-  formData.validDateType = 0
-}
-const maxOriginUrlRows = ref(100) // 最多多少行
-// 链接有多少行
-const originUrlRows = ref(0)
-// 防抖
-// const fd = (fn, delay) => {
-//   let timer = null
-//   return function (url) {
-//     if (timer) {
-//       clearTimeout(timer)
-//       timer = null
-//     }
-//     timer = setTimeout(() => {
-//       fn(url)
-//     }, delay)
-//   }
-// }
-const isLoading = ref(false)
-// const queryTitle = (url) => {
-//   if (reg.test(url)) {
-//     isLoading.value = true
-//     API.smallLinkPage.queryTitle({ url: url }).then((res) => {
-//       formData.describe = res?.data?.data
-//       isLoading.value = false
-//     })
-//   }
-// }
-// const getTitle = fd(queryTitle, 1000)
-watch(
-  () => formData.originUrls,
-  (nV) => {
-    originUrlRows.value = (nV || '').split(/\r|\r\n|\n/)?.length ?? 0
-    // // 只有在描述内容为空时才会去查询链接对应的标题
-    // if (!formData.describe) {
-    //   // 外边包一层防抖
-    //   getTitle(nV)
-    // }
-  }
-)
-const maxDescribeRows = ref(100) // 最多多少行
-// 描述信息有多少行
-const describeRows = ref(0)
-watch(
-  () => formData.describes,
-  (nV) => {
-    describeRows.value = (nV || '').split(/\r|\r\n|\n/)?.length ?? 0
-  }
-)
-
-// 将分组数据传给选择分组选项并默认选中第一项
-watch(
-  () => props.groupInfo,
-  (nV) => {
-    groupInfo.value = nV
-    // console.log('默认的gid', props.defaultGid)
-    formData.gid = nV?.[0]?.gid
-  },
-  {
-    immediate: true
-  }
-)
-watch(
-  () => props.defaultGid,
-  (nV) => {
-    if (props.defaultGid) {
-      formData.gid = props.defaultGid
-    } else {
-      formData.gid = props.groupInfo?.[0]?.gid
-    }
-  },
-  {
-    immediate: true
-  }
-)
-
-// 校验规则
-const formRule = reactive({
-  originUrls: [
-    { required: true, message: '请输入链接', trigger: 'blur' },
-    {
-      validator: function (rule, value, callback) {
-        // console.log('============', value, value.split('/n'))
-        if (value) {
-          if (value.split(/\r\n|\r|\n/).some(item => !reg.test(item))) {
-            return callback(new Error('请输入有效的 HTTP 或 HTTPS 网站链接'))
-          }
-        }
-        if (originUrlRows.value > maxOriginUrlRows.value) {
-          callback(new Error('超过输入' + maxOriginUrlRows.value + '行'))
-        } else {
-          callback()
-          submitDisable.value = false
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
-  gid: [{ required: true, message: '请选择分组', trigger: 'blur' }],
-  describes: [
-    { required: true, message: '请输入描述信息', trigger: 'blur' },
-    {
-      validator: function (rule, value, callback) {
-        if (value) {
-          value.split(/\r|\r\n|\n/).forEach((item) => {
-            if (item === '' || !item) {
-              callback(new Error('请不要输入空行'))
-            }
-          })
-        }
-        // console.log('============', value, value.split('/n'))
-        if (describeRows.value !== originUrlRows.value) {
-          callback(new Error('标题数量与链接数量不等'))
-        }
-        if (describeRows.value > maxDescribeRows.value) {
-          callback(new Error('超过输入' + maxDescribeRows.value + '行'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
-  validDate: [
-    { required: false, message: '请输日期', trigger: 'blur' }
-    // {
-    //   validator: function (rule, value, callback) {
-    //     if (describeRows.value > maxDescribeRows.value) {
-    //       callback(new Error('超过输入' + maxDescribeRows.value + '行'))
-    //     } else {
-    //       callback()
-    //     }
-    //   },
-    //   trigger: 'blur'
-    // }
-  ]
-})
-// 限制日期选择器选择过去的时间
-const disabledDate = (time) => {
-  return new Date(time).getTime() < new Date().getTime() //选当前时间之后的时间
-}
-
-// 将输入框中的含有\n的字符串变为数组
-const transferStrToArray = (str) => {
-  return str.split(/[\n]+/)
-}
-// 将组件里面的确认和取消点击事件传出去
+const MAX_BATCH_LINKS = 10
+const props = defineProps({ groupInfo: Array, defaultGid: String })
 const emits = defineEmits(['onSubmit', 'cancel'])
+const API = getCurrentInstance().proxy.$API
+const defaultDomain = useStore().state.domain ?? ' '
+const ruleFormRef = ref()
+const entries = ref([])
+const submitting = ref(false)
+const formData = reactive({
+  domain: defaultDomain, originUrls: '', gid: null, createdType: 1,
+  validDate: null, validDateType: 0
+})
+const originUrls = computed(() => formData.originUrls.split(/\r?\n|\r/).map(url => url.trim()).filter(Boolean))
+const hasPendingTitles = computed(() => entries.value.some(entry => entry.loading || (!entry.requested && isWebsiteUrl(entry.url))))
+let nextKey = 0
+let titleTimer
+let titleGeneration = 0
 
-function downLoadXls(res) {
-  let url = window.URL.createObjectURL(
-    new Blob([res.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    })
-  )
-  // 创建A标签
-  let link = document.createElement('a')
-  link.style.display = 'none'
-  link.href = url
-  // 设置的下载文件文件名
-  const fileName = decodeURI(res.headers['content-disposition'].split(';')[1].split('filename*=')[1])
-  // 触发点击方法
-  link.setAttribute('download', fileName)
-  document.body.appendChild(link)
-  link.click()
+const hostTitle = (url) => {
+  try { return new URL(url).hostname.replace(/^www\./i, '').slice(0, 100) }
+  catch { return '' }
 }
 
-// 点击确定按钮后的校验
-const ruleFormRef = ref()
-const submitDisable = ref(false)
-const onSubmit = async (formEl) => {
-  submitDisable.value = true
-  if (!formEl) {
-    submitDisable.value = false
-    return
-  }
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      let { describes, originUrls } = formData
-      describes = transferStrToArray(describes)
-      originUrls = transferStrToArray(originUrls)
-      const res = await API.smallLinkPage.addLinks({ ...formData, describes, originUrls })
-      if (!res.data.data && res.data) {
-        ElMessage.success('创建成功！短链列表已开始下载')
-        emits('onSubmit', false)
-        submitDisable.value = false
-        downLoadXls(res)
-      } else if (!res?.data?.success) {
-        ElMessage.error(res?.data?.message)
-      } else {
-        ElMessage.success('创建成功！短链列表已开始下载')
-        emits('onSubmit', false)
-        submitDisable.value = false
+const loadTitles = async (generation) => {
+  const pending = entries.value.filter(entry => !entry.requested && isWebsiteUrl(entry.url))
+  // A small pool prevents ten simultaneous website requests through the backend.
+  const workers = Array.from({ length: Math.min(3, pending.length) }, async () => {
+    while (pending.length && generation === titleGeneration) {
+      const entry = pending.shift()
+      entry.requested = true
+      entry.loading = true
+      try {
+        const response = await API.smallLinkPage.queryTitle({ url: entry.url })
+        if (entries.value.includes(entry) && !entry.edited && response.data?.success) {
+          entry.title = (response.data.data || hostTitle(entry.url)).trim().slice(0, 100)
+        }
+      } catch {
+        if (entries.value.includes(entry)) entry.failed = true
+      } finally {
+        entry.loading = false
       }
-    } else {
-      // ElMessage.error('创建失败！')
     }
   })
+  await Promise.all(workers)
 }
-const cancel = () => {
-  emits('cancel', false)
-  initFormData()
+
+watch(originUrls, (urls) => {
+  const previous = new Map()
+  for (const entry of entries.value) {
+    if (!previous.has(entry.url)) previous.set(entry.url, [])
+    previous.get(entry.url).push(entry)
+  }
+  entries.value = urls.slice(0, MAX_BATCH_LINKS).map(url => previous.get(url)?.shift() || {
+    key: ++nextKey, url, title: hostTitle(url), edited: false,
+    requested: false, loading: false, failed: false
+  })
+  clearTimeout(titleTimer)
+  const generation = ++titleGeneration
+  if (urls.length <= MAX_BATCH_LINKS) titleTimer = setTimeout(() => loadTitles(generation), 550)
+})
+
+watch(() => [props.groupInfo, props.defaultGid], () => {
+  formData.gid = props.defaultGid || props.groupInfo?.[0]?.gid || null
+}, { immediate: true })
+watch(() => formData.validDateType, type => { if (type === 0) formData.validDate = null })
+
+const formRule = {
+  originUrls: [{ validator: (_rule, _value, done) => {
+    if (!originUrls.value.length) return done(new Error('请输入至少 1 条网站链接'))
+    if (originUrls.value.length > MAX_BATCH_LINKS) return done(new Error('每批最多创建 10 条短链接'))
+    if (originUrls.value.some(url => !isWebsiteUrl(url))) return done(new Error('请输入有效的 HTTP 或 HTTPS 网站链接'))
+    done()
+  }, trigger: 'blur' }],
+  gid: [{ required: true, message: '请选择分组', trigger: 'change' }],
+  validDate: [{ validator: (_rule, value, done) => {
+    if (formData.validDateType === 1 && (!value || new Date(value).getTime() <= Date.now())) {
+      return done(new Error('请选择未来的有效时间'))
+    }
+    done()
+  }, trigger: 'change' }]
 }
-onBeforeUnmount(() => {
-  initFormData()
-})
-defineExpose({
-  // 当外部对话框以任何方式关闭时，初始化表单数据
-  initFormData
-})
+const disabledDate = time => time.getTime() < Date.now() - 86400000
+const shortcuts = [1, 7, 30].map((days, index) => ({
+  text: ['一天', '七天', '三十天'][index],
+  value: () => new Date(Date.now() + days * 86400000)
+}))
+
+const downloadExcel = response => {
+  const fileName = response.headers['content-disposition']?.match(/filename\*=utf-8''([^;]+)/i)?.[1]
+  const url = URL.createObjectURL(new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName ? decodeURIComponent(fileName) : '批量创建短链接.xlsx'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const onSubmit = async () => {
+  if (submitting.value || hasPendingTitles.value || !await ruleFormRef.value?.validate().catch(() => false)) return
+  const titles = entries.value.map(entry => entry.title.trim())
+  if (titles.some(title => !title)) { ElMessage.warning('请填写每条短链接的标题'); return }
+  submitting.value = true
+  try {
+    const response = await API.smallLinkPage.addLinks({
+      ...formData, originUrls: originUrls.value, describes: titles
+    })
+    const bytes = new Uint8Array(response.data)
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+      let message = '创建失败，请稍后重试'
+      try { message = JSON.parse(new TextDecoder().decode(bytes)).message || message } catch { /* Unexpected response. */ }
+      ElMessage.error(message)
+      return
+    }
+    downloadExcel(response)
+    ElMessage.success('创建成功，短链列表已下载')
+    emits('onSubmit', false)
+    initFormData()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '创建失败，请检查服务连接后重试')
+  } finally { submitting.value = false }
+}
+
+const initFormData = () => {
+  clearTimeout(titleTimer)
+  titleGeneration++
+  entries.value = []
+  formData.originUrls = ''
+  formData.domain = defaultDomain
+  formData.createdType = 1
+  formData.validDate = null
+  formData.validDateType = 0
+}
+const cancel = () => { emits('cancel', false); initFormData() }
+onBeforeUnmount(() => { clearTimeout(titleTimer); titleGeneration++ })
+defineExpose({ initFormData })
 </script>
 
 <style lang="less" scoped>
-.alert {
-  color: rgb(231, 166, 67);
-  font-size: 12px;
-  width: 90%;
-}
+.batch-form { max-width: 100%; }
+.input-hint { width: 100%; display: flex; justify-content: space-between; gap: 12px; color: #75839b; font-size: 12px; line-height: 24px; }
+.input-hint strong { white-space: nowrap; color: #6374a0; }.input-hint.over-limit strong { color: #df5353; }
+.preview-list { width: 100%; max-height: 286px; overflow: auto; border: 1px solid #e5eaf3; border-radius: 12px; background: #fbfcff; }
+.preview-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #edf0f7; }
+.preview-row:last-child { border-bottom: 0; }.preview-index { width: 15px; flex: none; color: #8895ac; font-size: 12px; }
+.preview-detail { flex: 1; min-width: 0; }.preview-url { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #8792a8; font-size: 11px; line-height: 20px; }
+.preview-state { width: 68px; flex: none; text-align: right; color: #8a96a9; font-size: 11px; }
+.actions { width: 100%; display: flex; justify-content: flex-end; }.alert { display: block; color: #d79b3b; font-size: 12px; }
+@media (max-width: 600px) { .preview-state { display: none; }.preview-row { gap: 6px; padding: 8px; } }
 </style>
