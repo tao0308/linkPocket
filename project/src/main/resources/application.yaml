@@ -1,6 +1,8 @@
 server:
   port: 8001
 spring:
+  config:
+    import: optional:file:./config/application-local.yaml,optional:file:../config/application-local.yaml
   application:
     name: short-link-project
   datasource:

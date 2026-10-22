@@ -65,6 +65,9 @@ public class ShortLinkDO extends BaseDO {
      */
     private Integer createdType;
 
+    /** Verified username captured at creation; preserved when a link is edited or moved. */
+    private String creatorUsername;
+
     /**
      * 有效期类型 0：永久有效 1：用户自定义
      */

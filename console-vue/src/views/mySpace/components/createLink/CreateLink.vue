@@ -4,6 +4,7 @@
       <span class="success-mark"><el-icon><Check /></el-icon></span>
       <h3>你的连接，已准备好发光</h3>
       <p>复制这条短链接，开始分享。</p>
+      <p v-if="createdLink.creatorUsername" class="created-by"><img class="creator-avatar" :src="defaultCreatorAvatar" width="24" height="24" alt="" /> 由 {{ createdLink.creatorUsername }} 创建</p>
       <ShortLinkGlow :url="createdLink.fullShortUrl" />
       <div class="created-actions"><el-button type="primary" @click="copyCreatedLink">复制链接</el-button><el-button @click="finish">完成</el-button></div>
     </div>
@@ -83,6 +84,7 @@ import { reactive, ref, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useStore } from 'vuex'
 import ShortLinkGlow from '@/components/ShortLinkGlow.vue'
+import defaultCreatorAvatar from '@/assets/avatars/default-creator.png'
 import { isWebsiteUrl } from '@/utils/websiteUrl.mjs'
 
 const store = useStore()
@@ -326,6 +328,8 @@ defineExpose({
 .created-link h3 { margin: 16px 0 8px; color: #26334d; font-size: 22px; }
 .created-link p { margin-bottom: 18px; color: #697990; }
 .created-actions { display: flex; justify-content: center; gap: 12px; margin-top: 25px; }
+.created-link .created-by { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; margin-bottom: 12px; }
+.created-by .creator-avatar { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #e1e6f5; object-fit: cover; background: #f2f5ff; }
 .alert {
   color: rgb(231, 166, 67);
   font-size: 12px;

@@ -21,6 +21,8 @@ public class ShortLinkCreateRespDTO {
      */
     private String gid;
 
+    private String creatorUsername;
+
     /**
      * 原始链接
      */

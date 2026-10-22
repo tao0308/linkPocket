@@ -29,4 +29,6 @@ public class ShortLinkBaseInfoRespDTO {
      * 短链接
      */
     private String fullShortUrl;
+
+    private String creatorUsername;
 }

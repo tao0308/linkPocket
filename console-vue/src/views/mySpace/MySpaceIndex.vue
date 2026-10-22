@@ -111,6 +111,10 @@
                     <span>{{ scope.row.describe }}</span>
                   </el-tooltip>
                   <div class="time" style="display: flex">
+                    <span class="creator-label" :title="scope.row.creatorUsername ? '创建用户：' + scope.row.creatorUsername : '该历史短链创建时未记录用户'">
+                      <img class="creator-avatar" :src="defaultCreatorAvatar" width="20" height="20" alt="" />
+                      <span class="creator-name">{{ scope.row.creatorUsername || '历史记录' }}</span>
+                    </span>
                     <span>{{ scope.row.createTime }}</span>
                     <el-tooltip show-after="500" v-if="scope?.row?.validDate" :content="'到期时间：' + scope?.row?.validDate">
                       <img v-if="isExpire(scope?.row?.validDate)" width="18" height="18" src="@/assets/png/沙漏倒计时.png"
@@ -384,6 +388,7 @@ import { getTodayFormatDate, getLastWeekFormatDate } from '@/utils/plugins.js'
 import EditLink from './components/editLink/EditLink.vue'
 import { ElMessage } from 'element-plus'
 import WebsiteIcon from '@/components/WebsiteIcon.vue'
+import defaultCreatorAvatar from '@/assets/avatars/default-creator.png'
 import ShortLinkGlow from '@/components/ShortLinkGlow.vue'
 import QRCode from './components/qrCode/QRCode.vue'
 
@@ -814,6 +819,10 @@ const removeLink = (data) => {
 </script>
 
 <style lang="scss" scoped>
+.table-link-box .time { align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.table-link-box .name-date .time .creator-label { display: inline-flex; align-items: center; gap: 5px; max-width: 150px; min-height: 22px; color: #66748d; }
+.table-link-box .name-date .time .creator-avatar { flex: none; width: 20px; height: 20px; margin: 0; border: 1px solid #e1e6f5; border-radius: 50%; object-fit: cover; background: #f2f5ff; }
+.table-link-box .name-date .time .creator-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 400; }
 .workspace-toolbar { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .workspace-title h1 { font-size: 23px; color: #27324d; font-weight: 650; letter-spacing: -.7px; }
 .workspace-title p { font-size: 11px; color: #71809a; margin-top: 4px; }

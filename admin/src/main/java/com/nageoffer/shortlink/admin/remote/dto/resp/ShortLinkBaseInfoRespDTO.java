@@ -36,4 +36,8 @@ public class ShortLinkBaseInfoRespDTO {
     @ExcelProperty("原始链接")
     @ColumnWidth(80)
     private String originUrl;
+
+    @ExcelProperty("创建用户")
+    @ColumnWidth(24)
+    private String creatorUsername;
 }

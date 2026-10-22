@@ -28,6 +28,7 @@ import com.nageoffer.shortlink.project.dto.resp.*;
 import com.nageoffer.shortlink.project.mq.producer.ShortLinkStatsSaveProducer;
 import com.nageoffer.shortlink.project.service.LinkStatsTodayService;
 import com.nageoffer.shortlink.project.service.FaviconService;
+import com.nageoffer.shortlink.project.service.CreatorIdentityService;
 import com.nageoffer.shortlink.project.toolkit.DomainPolicy;
 import com.nageoffer.shortlink.project.service.ShortLinkService;
 import com.nageoffer.shortlink.project.toolkit.HashUtil;
@@ -81,6 +82,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final ShortLinkStatsSaveProducer shortLinkStatsSaveProducer;
     private final GotoDomainWhiteListConfiguration gotoDomainWhiteListConfiguration;
     private final FaviconService faviconService;
+    private final CreatorIdentityService creatorIdentityService;
 
     @Value("${short-link.domain.default}")
     private String createShortLinkDefaultDomain;
@@ -90,6 +92,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     @Override
     public ShortLinkCreateRespDTO createShortLink(ShortLinkCreateReqDTO requestParam) {
         verificationWhitelist(requestParam.getOriginUrl());
+        String creatorUsername = creatorIdentityService.currentUsername();
         String shortLinkSuffix = generateSuffix(requestParam);
         String fullShortUrl = StrBuilder.create(createShortLinkDefaultDomain)
                 .append("/")
@@ -100,6 +103,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .originUrl(requestParam.getOriginUrl())
                 .gid(requestParam.getGid())
                 .createdType(requestParam.getCreatedType())
+                .creatorUsername(creatorUsername)
                 .validDateType(requestParam.getValidDateType())
                 .validDate(requestParam.getValidDate())
                 .describe(requestParam.getDescribe())
@@ -130,6 +134,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         shortUriCreateCachePenetrationBloomFilter.add(fullShortUrl);
         return ShortLinkCreateRespDTO.builder()
                 .fullShortUrl("http://" + shortLinkDO.getFullShortUrl())
+                .creatorUsername(shortLinkDO.getCreatorUsername())
                 .originUrl(shortLinkDO.getOriginUrl())
                 .gid(shortLinkDO.getGid())
                 .build();
@@ -137,8 +142,13 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
     @Override
     public ShortLinkBatchCreateRespDTO batchCreateShortLink(ShortLinkBatchCreateReqDTO requestParam) {
+        creatorIdentityService.currentUsername();
         List<String> originUrls = requestParam.getOriginUrls();
         List<String> describes = requestParam.getDescribes();
+        if (originUrls == null || describes == null || originUrls.isEmpty() || originUrls.size() > 100
+                || originUrls.size() != describes.size()) {
+            throw new ClientException("跳转链接与描述数量必须一致，每批支持 1–100 条");
+        }
         List<ShortLinkBaseInfoRespDTO> result = new ArrayList<>();
         for (int i = 0; i < originUrls.size(); i++) {
             ShortLinkCreateReqDTO shortLinkCreateReqDTO = BeanUtil.toBean(requestParam, ShortLinkCreateReqDTO.class);
@@ -150,6 +160,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                         .fullShortUrl(shortLink.getFullShortUrl())
                         .originUrl(shortLink.getOriginUrl())
                         .describe(describes.get(i))
+                        .creatorUsername(shortLink.getCreatorUsername())
                         .build();
                 result.add(linkBaseInfoRespDTO);
             } catch (Throwable ex) {
@@ -215,6 +226,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                         .originUrl(requestParam.getOriginUrl())
                         .gid(requestParam.getGid())
                         .createdType(hasShortLinkDO.getCreatedType())
+                        .creatorUsername(hasShortLinkDO.getCreatorUsername())
                         .validDateType(requestParam.getValidDateType())
                         .validDate(requestParam.getValidDate())
                         .describe(requestParam.getDescribe())

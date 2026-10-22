@@ -302,11 +302,19 @@ shortlink/
 
 域名白名单位于 `project/src/main/resources/application.yaml` 的 `short-link.goto-domain.white-list`。支持 YouTube / youtu.be、GitHub、X / Twitter、Google、Microsoft、Apple、Notion、Figma、知乎、B 站、掘金等常用网站，并允许条目对应的子域名；`github.com.evil.example` 等伪装域名不会匹配。新增主域名后重启 project 生效。
 
-创建短链不会等待外网图标请求。前端通过带登录凭证的 `/api/short-link/v1/favicon?url=...` 加载图标：后端优先使用常见站点官方资源，其他站点解析 `rel=icon`、Apple 图标、相对地址与跳转，最后尝试根目录图标。解析规则参考 [MDN 图标声明](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel)。单次抓取有超时和大小限制，校验图片签名，并拒绝内网地址及向内网的重定向；成功缓存 24 小时，失败缓存 5 分钟。浏览器复用请求、限制并发、释放 Blob URL。外站无法访问或全部候选资源失效时显示站点首字母，不显示破图，也不影响生成短链。
+创建短链不会等待外网图标请求。前端通过带登录凭证的 `/api/short-link/v1/favicon?url=...` 加载图标：后端优先使用常见站点官方资源，其他站点解析 `rel=icon`、Apple 图标、相对地址与跳转，最后尝试根目录图标。解析规则参考 [MDN 图标声明](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel)。单次抓取有超时和大小限制，校验图片签名，并拒绝内网地址及向内网的重定向；成功缓存 24 小时，失败缓存 30 秒。浏览器复用请求、限制并发、释放 Blob URL。外站无法访问且没有官方快照时显示站点首字母，不显示破图，也不影响生成短链。
 
-图标缓存为进程内缓存，重启 project 后会重新获取；外网封锁、站点限制及 DNS 故障仍可能影响真实图标的可用性。
+图标缓存为进程内缓存，重启 project 后会重新获取。GitHub、YouTube、X 和哔哩哔哩另保存了来自官方资源地址的图标快照，前端可立即显示、后端可在抓取失败时回退使用；来源见 `project/src/main/resources/icons/README.md`。其他站点加载失败时显示可点击重试的站点字母，失败缓存为 30 秒；点击重试可绕过缓存。
 
 外网需要代理时，图标与标题抓取自动读取现有 `HTTPS_PROXY` 环境变量；也可配置 `short-link.favicon.proxy-url` 为 HTTP 代理地址（如 `http://127.0.0.1:7897`，不携带凭据）。无需修改 Java 的全局网络代理或影响业务 API 请求。修改后需重启 project。
+
+IDEA 启动不一定继承终端的代理环境变量。可在项目根目录的 `config/application-local.yaml` 设置本机代理，文件已加入 Git 忽略；project 从根目录或模块目录启动均会读取它。本机已按现有代理保存该配置。
+
+#### 创建用户
+
+新短链的 `creator_username` 在后端验证 Redis 登录会话后写入，客户端 JSON 无法指定或覆盖。admin 调用 project 时转发当前会话，单条和批量创建都支持；列表、创建成功提示、批量 Excel 导出返回 `creatorUsername`。编辑、分组迁移和回收站操作保留该值。
+
+升级数据库前先执行 `.\scripts\migrate-creator.ps1`。脚本读取现有开发数据库配置，对 `t_link_0` 到 `t_link_15` 添加可空字段；可安全重复执行，保留旧数据。`start-dev.ps1` 也会执行该迁移。历史记录没有可验证的创建者，显示“历史记录”。完成升级后，在 IDEA 重启 **project 和 admin** 即可加载后端修改，gateway 不需要重启。
 
 元数据回归检查（无需启动中间件）：
 
