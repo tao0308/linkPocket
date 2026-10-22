@@ -1,6 +1,13 @@
 <template>
   <div>
-    <el-form ref="ruleFormRef" :model="formData" :rules="formRule" label-width="80px">
+    <div v-if="createdLink" class="created-link" role="status">
+      <span class="success-mark"><el-icon><Check /></el-icon></span>
+      <h3>你的连接，已准备好发光</h3>
+      <p>复制这条短链接，开始分享。</p>
+      <ShortLinkGlow :url="createdLink.fullShortUrl" />
+      <div class="created-actions"><el-button type="primary" @click="copyCreatedLink">复制链接</el-button><el-button @click="finish">完成</el-button></div>
+    </div>
+    <el-form v-else ref="ruleFormRef" :model="formData" :rules="formRule" label-width="80px">
       <el-form-item label="跳转链接" prop="originUrl">
         <el-input
           v-if="isSingle"
@@ -72,11 +79,22 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, nextTick, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { reactive, ref, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useStore } from 'vuex'
+import ShortLinkGlow from '@/components/ShortLinkGlow.vue'
+import { isWebsiteUrl } from '@/utils/websiteUrl.mjs'
 
 const store = useStore()
+const createdLink = ref(null)
+const copyCreatedLink = async () => {
+  const url = createdLink.value.fullShortUrl
+  try {
+    await navigator.clipboard.writeText(/^https?:\/\//i.test(url) ? url : `http://${url}`)
+    ElMessage.success('链接已复制')
+  } catch { ElMessage.warning('复制未成功，请选中链接手动复制') }
+}
+const finish = () => emits('onSubmit', false)
 const defaultDomain = store.state.domain ?? ' '
 const props = defineProps({
   groupInfo: Array,
@@ -86,8 +104,7 @@ const props = defineProps({
 const { proxy } = getCurrentInstance()
 const API = proxy.$API
 // url的校验规则
-const reg =
-  /^(https?:\/\/(([a-zA-Z0-9]+-?)+[a-zA-Z0-9]+\.)+(([a-zA-Z0-9]+-?)+[a-zA-Z0-9]+))(:\d+)?(\/.*)?(\?.*)?(#.*)?$/
+const reg = { test: isWebsiteUrl }
 // 自定义时间中选择几天
 const shortcuts = [
   {
@@ -126,15 +143,8 @@ const formData = reactive({
   describe: null,
   validDateType: 0
 })
-watch(
-  () => formData,
-  nV => {
-  },
-  {
-    deep: true
-  }
-)
 const initFormData = () => {
+  createdLink.value = null
   formData.domain = defaultDomain
   formData.originUrl = null
   formData.createdType = 1
@@ -159,13 +169,14 @@ const fd = (fn, delay) => {
   }
 }
 const isLoading = ref(false)
-const queryTitle = (url) => {
+const queryTitle = async (url) => {
   if (reg.test(url)) {
     isLoading.value = true
-    API.smallLinkPage.queryTitle({ url: url }).then((res) => {
-      formData.describe = res?.data?.data
-      isLoading.value = false
-    })
+    try {
+      const res = await API.smallLinkPage.queryTitle({ url })
+      if (formData.originUrl === url && !formData.describe && res.data.success) formData.describe = res.data.data
+    } catch { /* The title is optional; users can always enter a description. */ }
+    finally { isLoading.value = false }
   }
 }
 const getTitle = fd(queryTitle, 1000)
@@ -194,12 +205,12 @@ watch(
 watch(
   () => props.groupInfo,
   (nV) => {
-    groupInfo.value = nV
+    groupInfo.value = nV || []
     // console.log('默认的gid', props.defaultGid)
     if (props.defaultGid) {
       formData.gid = props.defaultGid
     } else {
-      formData.gid = nV[0].gid
+      formData.gid = nV?.[0]?.gid
     }
   },
   {
@@ -208,11 +219,11 @@ watch(
 )
 watch(
   () => props.defaultGid,
-  (nV) => {
+  () => {
     if (props.defaultGid) {
       formData.gid = props.defaultGid
     } else {
-      formData.gid = nV[0].gid
+      formData.gid = props.groupInfo?.[0]?.gid
     }
   },
   {
@@ -228,11 +239,9 @@ const formRule = reactive({
       validator: function (rule, value, callback) {
         // console.log('============', value, value.split('/n'))
         if (value) {
-          value.split(/\r|\r\n|\n/).forEach((item) => {
-            if (!reg.test(item)) {
-              callback(new Error('请输入 http:// 或 https:// 开头的链接或应用跳转链接'))
-            }
-          })
+          if (value.split(/\r\n|\r|\n/).some(item => !reg.test(item))) {
+            return callback(new Error('请输入有效的 HTTP 或 HTTPS 网站链接'))
+          }
         }
         if (originUrlRows.value > maxOriginUrlRows.value) {
           callback(new Error('超过输入' + maxOriginUrlRows.value + '行'))
@@ -287,32 +296,16 @@ const emits = defineEmits(['onSubmit', 'cancel'])
 const ruleFormRef = ref()
 const submitDisable = ref(false)
 const onSubmit = async (formEl) => {
+  if (submitDisable.value || !formEl || !await formEl.validate().catch(() => false)) return
   submitDisable.value = true
-  if (!formEl) {
-    submitDisable.value = false
-    return
-  }
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      const res = await API.smallLinkPage.addSmallLink(formData)
-      if (!res?.data?.success) {
-        if (res?.data?.code === 'A000001') {
-          ElMessage.warning({
-            message: res.data.message,
-            duration: 5000
-          })
-        } else {
-          ElMessage.error(res.data.message)
-        }
-      } else {
-        ElMessage.success('创建成功！')
-        emits('onSubmit', false)
-        submitDisable.value = false
-      }
-    } else {
-      ElMessage.error('创建失败！')
-    }
-  })
+  try {
+    const { data } = await API.smallLinkPage.addSmallLink(formData)
+    if (!data?.success) { ElMessage.error(data?.message || '创建失败，请稍后重试'); return }
+    createdLink.value = data.data
+    ElMessage.success('创建成功！')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '创建失败，请检查服务连接后重试')
+  } finally { submitDisable.value = false }
 }
 const cancel = () => {
   emits('cancel', false)
@@ -328,6 +321,11 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
+.created-link { text-align: center; padding: 22px 10px 30px; }
+.success-mark { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #577b69; background: #e6f6ed; font-size: 23px; }
+.created-link h3 { margin: 16px 0 8px; color: #26334d; font-size: 22px; }
+.created-link p { margin-bottom: 18px; color: #697990; }
+.created-actions { display: flex; justify-content: center; gap: 12px; margin-top: 25px; }
 .alert {
   color: rgb(231, 166, 67);
   font-size: 12px;

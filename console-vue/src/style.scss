@@ -5,7 +5,10 @@
   -webkit-font-smoothing:antialiased;
 }
 :root{
-  --el-color-primary:#2C85EC;
+  --el-color-primary:#6869cb;
+}
+@media (max-width: 780px) {
+  .el-dialog { width: 94vw !important; --el-dialog-margin-top: 7vh; border-radius: 16px; }
 }
 html {
   -ms-text-size-adjust: 100%;

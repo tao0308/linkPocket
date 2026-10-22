@@ -27,6 +27,8 @@ import com.nageoffer.shortlink.project.dto.req.ShortLinkUpdateReqDTO;
 import com.nageoffer.shortlink.project.dto.resp.*;
 import com.nageoffer.shortlink.project.mq.producer.ShortLinkStatsSaveProducer;
 import com.nageoffer.shortlink.project.service.LinkStatsTodayService;
+import com.nageoffer.shortlink.project.service.FaviconService;
+import com.nageoffer.shortlink.project.toolkit.DomainPolicy;
 import com.nageoffer.shortlink.project.service.ShortLinkService;
 import com.nageoffer.shortlink.project.toolkit.HashUtil;
 import com.nageoffer.shortlink.project.toolkit.LinkUtil;
@@ -38,9 +40,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RReadWriteLock;
@@ -51,8 +50,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -83,6 +80,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final LinkStatsTodayService linkStatsTodayService;
     private final ShortLinkStatsSaveProducer shortLinkStatsSaveProducer;
     private final GotoDomainWhiteListConfiguration gotoDomainWhiteListConfiguration;
+    private final FaviconService faviconService;
 
     @Value("${short-link.domain.default}")
     private String createShortLinkDefaultDomain;
@@ -568,44 +566,24 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         return shortUri;
     }
 
-    @SneakyThrows
     private String getFavicon(String url) {
-        URL targetUrl = new URL(url);
-        HttpURLConnection connection = (HttpURLConnection) targetUrl.openConnection();
-        connection.setRequestMethod("GET");
-        connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(5000);
-        connection.connect();
-        int responseCode = connection.getResponseCode();
-        if (HttpURLConnection.HTTP_OK == responseCode) {
-            Document document = Jsoup.connect(url).get();
-            Element faviconLink = document.select("link[rel~=icon]").first();
-            if (faviconLink == null) {
-                faviconLink = document.select("link[rel=apple-touch-icon]").first();
-            }
-            if (faviconLink != null) {
-                return faviconLink.attr("abs:href");
-            }
-            // 兜底：未声明 <link rel="icon"> 时，默认取域名根目录下的 favicon.ico
-            return targetUrl.getProtocol() + "://" + targetUrl.getHost() + "/favicon.ico";
-        }
-        return null;
+        return faviconService.resolveUrl(url);
     }
 
     private void verificationWhitelist(String originUrl) {
+        String domain;
+        try {
+            domain = DomainPolicy.parse(originUrl).getHost();
+        } catch (IllegalArgumentException ex) {
+            throw new ClientException(ex.getMessage());
+        }
         Boolean enable = gotoDomainWhiteListConfiguration.getEnable();
         if (enable == null || !enable) {
             return;
         }
-        String domain = LinkUtil.extractDomain(originUrl);
-        if (StrUtil.isBlank(domain)) {
-            throw new ClientException("跳转链接填写错误");
-        }
         List<String> details = gotoDomainWhiteListConfiguration.getDetails();
-        if (!details.contains(domain)) {
-            throw new ClientException("演示环境为避免恶意攻击，请生成以下网站跳转链接：" + gotoDomainWhiteListConfiguration.getNames());
+        if (!DomainPolicy.matches(domain, details)) {
+            throw new ClientException("暂不支持该域名，已开放：" + gotoDomainWhiteListConfiguration.getNames());
         }
     }
 

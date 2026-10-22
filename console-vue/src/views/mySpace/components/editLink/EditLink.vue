@@ -50,7 +50,8 @@ const { proxy } = getCurrentInstance()
 const API = proxy.$API
 const editData = props.editData
 // url的校验规则
-const reg = /^(https?:\/\/(([a-zA-Z0-9]+-?)+[a-zA-Z0-9]+\.)+(([a-zA-Z0-9]+-?)+[a-zA-Z0-9]+))(:\d+)?(\/.*)?(\?.*)?(#.*)?$/;
+import { isWebsiteUrl } from '@/utils/websiteUrl.mjs'
+const reg = { test: isWebsiteUrl };
 // 自定义时间中选择几天
 const shortcuts = [
   {

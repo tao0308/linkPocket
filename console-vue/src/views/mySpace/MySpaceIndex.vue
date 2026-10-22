@@ -1,5 +1,5 @@
 <template>
-  <div style="display: flex; height: 100%">
+  <div class="workspace" style="display: flex; height: 100%">
     <div class="options-box">
       <div class="option-title flex-box">
         <div>
@@ -62,11 +62,14 @@
       <div class="table-box">
         <!-- 默认展示创建短链输入框和按钮 -->
         <div v-if="!isRecycleBin" class="buttons-box">
-          <div style="width: 100%; display: flex">
+          <div class="workspace-toolbar">
+            <div class="workspace-title"><h1>我的连接<span class="connection-dot">.</span></h1><p>让每一次分享，都更进一步。</p></div>
+            <div class="workspace-actions">
             <!-- <el-input style="flex: 1; margin-right: 20px" placeholder="请输入http://或https://开头的连接或引用跳转程序"></el-input> -->
             <el-button class="addButton" type="primary" style="width: 130px; margin-right: 10px"
               @click="isAddSmallLink = true">创建短链</el-button>
             <el-button style="width: 130px; margin-right: 10px" @click="isAddSmallLinks = true">批量创建</el-button>
+            </div>
           </div>
         </div>
         <!-- 展示回收站信息 -->
@@ -102,7 +105,7 @@
               <div class="table-link-box" :class="{
                 isExpire: scope?.row?.validDateType === 1 && !isExpire(scope?.row?.validDate)
               }">
-                <img :src="getImgUrl(scope.row.favicon)" :key="scope?.row?.id" width="20" height="20" alt="" />
+                <WebsiteIcon :origin-url="scope.row.originUrl" />
                 <div class="name-date">
                   <el-tooltip show-after="500" :content="scope.row.describe">
                     <span>{{ scope.row.describe }}</span>
@@ -123,9 +126,9 @@
             <template #default="scope">
               <div class="table-url-box">
                 <!-- 当失效后就不能在点击跳转了 -->
-                <el-link type="primary" :underline="false" target="_blank"
+                <ShortLinkGlow
                   :disabled="scope?.row?.validDateType === 1 && !isExpire(scope?.row?.validDate)"
-                  :href="'http://' + scope.row.fullShortUrl">{{ scope.row.domain + '/' + scope.row.shortUri }}</el-link>
+                  :url="scope.row.fullShortUrl" />
                 <el-tooltip show-after="500" :content="scope.row.originUrl">
                   <span>{{ scope.row.originUrl }}</span>
                 </el-tooltip>
@@ -380,7 +383,8 @@ import CreateLinks from './components/createLink/CreateLinks.vue'
 import { getTodayFormatDate, getLastWeekFormatDate } from '@/utils/plugins.js'
 import EditLink from './components/editLink/EditLink.vue'
 import { ElMessage } from 'element-plus'
-import defaultImg from '@/assets/png/短链默认图标.png'
+import WebsiteIcon from '@/components/WebsiteIcon.vue'
+import ShortLinkGlow from '@/components/ShortLinkGlow.vue'
 import QRCode from './components/qrCode/QRCode.vue'
 
 // 查看图表的时候传过去展示的，没什么用
@@ -725,9 +729,6 @@ const cancelAddLink = () => {
   isAddSmallLink.value = false
   isAddSmallLinks.value = false
 }
-const getImgUrl = (url) => {
-  return url ?? defaultImg
-}
 // 判断链接是否过期
 const isExpire = (validDate) => {
   if (validDate) {
@@ -813,6 +814,26 @@ const removeLink = (data) => {
 </script>
 
 <style lang="scss" scoped>
+.workspace-toolbar { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.workspace-title h1 { font-size: 23px; color: #27324d; font-weight: 650; letter-spacing: -.7px; }
+.workspace-title p { font-size: 11px; color: #71809a; margin-top: 4px; }
+.connection-dot { color: #7875d8; }.workspace-actions { display: flex; align-items: center; flex-shrink: 0; }
+.workspace-actions .addButton { border: 1px solid #8682e3; background: linear-gradient(110deg, #6465c9, #8276d9); box-shadow: 0 4px 12px #7770d62a; }
+.workspace-actions .el-button { border-radius: 9px; height: 38px; font-size: 12px; }
+:deep(.el-table) { --el-table-border-color: #e8edf5; --el-table-row-hover-bg-color: #f7f8ff; border: 1px solid #e4e9f3; border-radius: 14px; box-shadow: 0 5px 25px #25385a04; }
+:deep(.el-table .cell) { padding-top: 8px; padding-bottom: 8px; }
+.options-box { background: #fcfdff; }.option-title { color: #4a5671; }.sortOptions { padding: 12px 8px; }.sortOptions .item-box { width: 174px; border-radius: 9px; margin: 4px 0; }
+@media (max-width: 780px) {
+  .workspace { flex-direction: column; }
+  .workspace-toolbar { flex-direction: column; align-items: flex-start; gap: 13px; }
+  .workspace-title h1 { font-size: 20px; }.workspace-actions .el-button { width: auto !important; }
+  .options-box { display: grid !important; grid-template-columns: 1fr 80px; width: 100% !important; height: auto !important; flex-shrink: 0; border-bottom: 1px solid #e5eaf3; }
+  .option-title { grid-column: 1 / -1; height: 36px !important; font-size: 12px !important; }
+  .workspace .sortOptions { display: flex; min-width: 0; height: auto; margin-bottom: 0; overflow-x: auto; overflow-y: hidden; padding: 3px 8px !important; }
+  .workspace .sortOptions .item-box { width: 138px; height: 36px; }.recycle-bin { position: static !important; height: 46px !important; }.recycle-box { border: 0 !important; font-size: 12px; }
+  .content-box { overflow-x: hidden; min-width: 0; padding: 10px !important; }.content-box .table-box .buttons-box { padding: 14px; }
+  :deep(.el-table) { width: 100% !important; height: calc(100svh - 350px) !important; min-height: 200px; }
+}
 .flex-box {
   display: flex;
   align-items: center;
@@ -966,6 +987,9 @@ const removeLink = (data) => {
   .table-box {
     background-color: #ffffff;
     height: 100%;
+    border: 1px solid #e6ebf5;
+    border-radius: 16px;
+    padding: 2px;
 
     .buttons-box {
       display: flex;

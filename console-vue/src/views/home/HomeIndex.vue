@@ -3,7 +3,7 @@
     <el-container>
       <el-header height="54px" style="padding: 0">
         <div class="header">
-          <div @click="toMySpace" class="logo">拿个offer-SaaS短链接@马丁</div>
+          <button @click="toMySpace" class="logo"><span class="logo-mark"><el-icon><Link /></el-icon></span>ShortLink<span class="logo-dot">.</span><span class="workspace-label">连接工作台</span></button>
           <div style="display: flex; align-items: center">
             <a
               class="link-span"
@@ -153,8 +153,9 @@ const truncateText = (text, maxLength) => {
 
 .header {
   color: rgba(0,0,0,.85);
-  background-color: #252b30;
-  padding: 0 0 0 20px;
+  background: linear-gradient(115deg, #10192e, #23263e);
+  padding: 0 24px;
+  border-bottom: 1px solid #c8d8ff22;
   height: 100%;
   display: flex;
   align-items: center;
@@ -170,7 +171,7 @@ const truncateText = (text, maxLength) => {
 
 .content-box {
   height: calc(100vh - 50px);
-  background-color: white;
+  background-color: #f6f8fd;
 }
 
 :deep(.el-tooltip__trigger:focus-visible) {
@@ -178,7 +179,11 @@ const truncateText = (text, maxLength) => {
 }
 
 .logo {
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  font-size: 21px;
   font-weight: 600;
   color: #e8e8e8;
   font-family: Helvetica, Tahoma, Arial, 'PingFang SC', 'Hiragino Sans GB', 'Heiti SC',
@@ -190,12 +195,15 @@ const truncateText = (text, maxLength) => {
 .logo:hover {
   color: #fff;
 }
+.logo-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid #d6e4ff4d; background: #9bc8ff18; color: #bed5ff; margin-right: 9px; font-size: 17px; }
+.logo-dot { color: #a3e1de; }
+.workspace-label { font-size: 10px; font-weight: 400; color: #b6c1d7; border-left: 1px solid #ffffff30; padding-left: 14px; margin-left: 14px; letter-spacing: 1px; }
 
 .link-span {
   color: #fff;
   opacity: .6;
-  margin-right: 30px;
-  font-size: 16px;
+  margin-right: 22px;
+  font-size: 12px;
   font-family: 'Helvetica Neue', Helvetica, STHeiTi, Arial, sans-serif;
   cursor: pointer;
   text-decoration: none;
@@ -223,4 +231,5 @@ const truncateText = (text, maxLength) => {
 .avatar {
   transform: translateY(-2px);
 }
+@media (max-width: 780px) { .link-span, .workspace-label { display: none; }.header { padding: 0 16px; }.name-span { margin-right: 0; } }
 </style>

@@ -51,7 +51,7 @@ router.beforeEach(async (to, from, next) => {
   setUsername(localStorage.getItem('username'))
   const token = getToken()
   if (to.path === '/login') {
-    next()
+    return next()
   }
   if (isNotEmpty(token)) {
     next()

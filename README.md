@@ -268,6 +268,52 @@ shortlink/
 
 ### 8.2 准备中间件
 
+#### 本机开发启动（Windows）
+
+本项目在这台电脑上使用以下服务：
+
+| 服务 | 地址 / 端口 | 说明 |
+|---|---|---|
+| MySQL | `127.0.0.1:3306` | 已安装的 Windows MySQL 服务，数据库 `link` |
+| Redis | `127.0.0.1:6379` | 使用现有 Redis 实例，密码以各模块配置为准 |
+| Nacos 2.1.1 | `http://localhost:8848/nacos` | 单机模式；客户端还需 `9848` gRPC 端口 |
+| project | `8001` | 短链生成、跳转、统计、网站图标 |
+| admin | `8002` | 用户、分组和后台接口 |
+| gateway | `8000` | 前端 API 入口 |
+| Vue | `http://localhost:5173/login` | Vite 开发页面 |
+
+先启动现有 MySQL、Redis，在项目根目录执行：
+
+```powershell
+.\scripts\start-dev.ps1
+# 仅启动，复用已经编译的后端：
+.\scripts\start-dev.ps1 -SkipBuild
+# Nacos 安装在其他目录时：
+.\scripts\start-dev.ps1 -NacosHome 'D:/Nacos/nacos-server-2.1.1/nacos'
+```
+
+脚本检查中间件端口，按需启动现有 Nacos，再启动三个后端与 Vue，不重复启动已占用的端口。日志位于 `logs/*-out.log` 和 `logs/*-err.log`。首次运行需要 Maven 下载依赖；前端需已在 `console-vue` 执行 `npm install`。
+
+本地新短链默认使用 `localhost:8001`，无需修改 hosts。部署或希望沿用自定义域名时设置环境变量 `SHORT_LINK_DOMAIN`（格式 `域名:端口`，不带协议）。数据库内已有的短链域名保持原值，需要原域名仍指向本机才能跳转。
+
+必需中间件只有 **MySQL、Redis、Nacos**。异步统计使用 Redis Stream，不需要额外启动 RabbitMQ、Kafka；当前开发流程也不依赖单独的 Sentinel 控制台或 Nginx。
+
+#### 网站图标与域名支持
+
+域名白名单位于 `project/src/main/resources/application.yaml` 的 `short-link.goto-domain.white-list`。支持 YouTube / youtu.be、GitHub、X / Twitter、Google、Microsoft、Apple、Notion、Figma、知乎、B 站、掘金等常用网站，并允许条目对应的子域名；`github.com.evil.example` 等伪装域名不会匹配。新增主域名后重启 project 生效。
+
+创建短链不会等待外网图标请求。前端通过带登录凭证的 `/api/short-link/v1/favicon?url=...` 加载图标：后端优先使用常见站点官方资源，其他站点解析 `rel=icon`、Apple 图标、相对地址与跳转，最后尝试根目录图标。解析规则参考 [MDN 图标声明](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel)。单次抓取有超时和大小限制，校验图片签名，并拒绝内网地址及向内网的重定向；成功缓存 24 小时，失败缓存 5 分钟。浏览器复用请求、限制并发、释放 Blob URL。外站无法访问或全部候选资源失效时显示站点首字母，不显示破图，也不影响生成短链。
+
+图标缓存为进程内缓存，重启 project 后会重新获取；外网封锁、站点限制及 DNS 故障仍可能影响真实图标的可用性。
+
+外网需要代理时，图标与标题抓取自动读取现有 `HTTPS_PROXY` 环境变量；也可配置 `short-link.favicon.proxy-url` 为 HTTP 代理地址（如 `http://127.0.0.1:7897`，不携带凭据）。无需修改 Java 的全局网络代理或影响业务 API 请求。修改后需重启 project。
+
+元数据回归检查（无需启动中间件）：
+
+```powershell
+.\scripts\test-metadata.ps1
+```
+
 1. **启动 Nacos**（单机）：`sh startup.sh -m standalone`（Windows 用 `startup.cmd -m standalone`）。
 2. **启动 MySQL 与 Redis**，并创建数据库 `link`，导入建表 SQL（含 `t_link_0..15`、`t_link_goto_0..15`、`t_link_stats_today_0..15` 及各统计表）。
 3. **修改配置**：各模块 `application.yaml` 中的数据源、Redis、Nacos 地址，以及 `shardingsphere-config-dev.yaml` 里的 MySQL 连接信息。

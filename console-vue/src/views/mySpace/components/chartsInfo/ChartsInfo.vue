@@ -2,7 +2,7 @@
   <el-dialog v-model="dialogVisible" :title="props.title" width="70%" :before-close="handleClose">
     <template #header>
       <div style="display: flex">
-        <img v-if="!isGroup" :src="getImgUrl(props.favicon)" width="25" height="25" alt="" />
+        <WebsiteIcon v-if="!isGroup" :origin-url="props.originUrl" :size="32" />
         <div style="display: flex; flex-direction: column; margin-left: 5px">
           <span style="font-size: 25px; line-height: 25px; font-weight: 550">{{
             props.title
@@ -217,7 +217,7 @@ import wifi from '@/assets/png/wifi.png'
 import PC from '@/assets/png/电脑.png'
 import Mobile from '@/assets/png/移动设备.png'
 import MobileDevices from '@/assets/png/移动设备.png'
-import defaultImg from '@/assets/png/短链默认图标.png'
+import WebsiteIcon from '@/components/WebsiteIcon.vue'
 import opera from '@/assets/png/opera.png'
 import IE from '@/assets/png/IE.png'
 import { getTodayFormatDate, getLastWeekFormatDate } from '@/utils/plugins.js'
@@ -260,9 +260,6 @@ const shortcuts = [
     }
   }
 ]
-const getImgUrl = (url) => {
-  return url ?? defaultImg
-}
 const dailyXAxis = ref()
 // const dailyXAxis = ref([])
 const showPane = ref('访问数据')

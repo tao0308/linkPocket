@@ -24,15 +24,18 @@ spring:
         server-addr: 127.0.0.1:8848
 
 short-link:
+  favicon:
+    # Reuse the existing local HTTP proxy for sites that require it; leave empty for direct access.
+    proxy-url: ${HTTPS_PROXY:}
   domain:
-    default: nurl.ink:8001
+    default: ${SHORT_LINK_DOMAIN:localhost:8001}
   stats:
     locale:
       amap-key: 9774d2a34884be8ac77edefcdf2a8d8c
   goto-domain:
     white-list:
       enable: true
-      names: '拿个offer,知乎,掘金,博客园'
+      names: 'YouTube、GitHub、X / Twitter、Google、Microsoft、Apple、知乎、掘金、哔哩哔哩等常用网站（含子域名）'
       details:
         - nageoffer.com
         - zhihu.com
@@ -44,6 +47,48 @@ short-link:
         - zhipin.com
         - yuque.com
         - github.com
+        - youtube.com
+        - youtu.be
+        - x.com
+        - twitter.com
+        - t.co
+        - google.com
+        - google.co.jp
+        - github.io
+        - gitlab.com
+        - microsoft.com
+        - bing.com
+        - live.com
+        - office.com
+        - apple.com
+        - notion.so
+        - notion.site
+        - figma.com
+        - stackoverflow.com
+        - stackexchange.com
+        - npmjs.com
+        - developer.mozilla.org
+        - wikipedia.org
+        - reddit.com
+        - linkedin.com
+        - instagram.com
+        - facebook.com
+        - medium.com
+        - vercel.app
+        - netlify.app
+        - baidu.com
+        - qq.com
+        - weixin.qq.com
+        - csdn.net
+        - gitee.com
+        - douyin.com
+        - xiaohongshu.com
+        - taobao.com
+        - jd.com
+        - openai.com
+        - chatgpt.com
+        - anthropic.com
+        - claude.ai
 
 mybatis-plus:
   configuration:

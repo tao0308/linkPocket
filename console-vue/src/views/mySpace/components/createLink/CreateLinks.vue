@@ -67,6 +67,7 @@
 import { reactive, ref, onMounted, nextTick, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useStore } from 'vuex'
+import { isWebsiteUrl } from '@/utils/websiteUrl.mjs'
 
 const store = useStore()
 const defaultDomain = store.state.domain ?? ' '
@@ -77,8 +78,7 @@ const props = defineProps({
 const { proxy } = getCurrentInstance()
 const API = proxy.$API
 // url的校验规则
-const reg =
-  /^(https?:\/\/(([a-zA-Z0-9]+-?)+[a-zA-Z0-9]+\.)+(([a-zA-Z0-9]+-?)+[a-zA-Z0-9]+))(:\d+)?(\/.*)?(\?.*)?(#.*)?$/
+const reg = { test: isWebsiteUrl }
 // 自定义时间中选择几天
 const shortcuts = [
   {
@@ -179,7 +179,7 @@ watch(
   (nV) => {
     groupInfo.value = nV
     // console.log('默认的gid', props.defaultGid)
-    formData.gid = nV[0].gid
+    formData.gid = nV?.[0]?.gid
   },
   {
     immediate: true
@@ -191,7 +191,7 @@ watch(
     if (props.defaultGid) {
       formData.gid = props.defaultGid
     } else {
-      formData.gid = nV[0].gid
+      formData.gid = props.groupInfo?.[0]?.gid
     }
   },
   {
@@ -207,11 +207,9 @@ const formRule = reactive({
       validator: function (rule, value, callback) {
         // console.log('============', value, value.split('/n'))
         if (value) {
-          value.split(/\r|\r\n|\n/).forEach((item) => {
-            if (!reg.test(item)) {
-              callback(new Error('请输入 http:// 或 https:// 开头的链接或应用跳转链接'))
-            }
-          })
+          if (value.split(/\r\n|\r|\n/).some(item => !reg.test(item))) {
+            return callback(new Error('请输入有效的 HTTP 或 HTTPS 网站链接'))
+          }
         }
         if (originUrlRows.value > maxOriginUrlRows.value) {
           callback(new Error('超过输入' + maxOriginUrlRows.value + '行'))

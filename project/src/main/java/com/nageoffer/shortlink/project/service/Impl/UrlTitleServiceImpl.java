@@ -1,36 +1,19 @@
 package com.nageoffer.shortlink.project.service.Impl;
 
+import com.nageoffer.shortlink.project.common.convention.exception.ClientException;
+import com.nageoffer.shortlink.project.service.FaviconService;
 import com.nageoffer.shortlink.project.service.UrlTitleService;
-import lombok.SneakyThrows;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
-
-/**
- * URL标题接口实现层
- */
-
 @Service
+@RequiredArgsConstructor
 public class UrlTitleServiceImpl implements UrlTitleService {
+    private final FaviconService faviconService;
 
-    @SneakyThrows
     @Override
     public String getTitleByUrl(String url) {
-        URL tagetUrl = new URL(url);
-        HttpURLConnection connection = (HttpURLConnection) tagetUrl.openConnection();
-        connection.setRequestMethod("GET");
-        connection.connect();
-
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            Document document = Jsoup.connect(url).get();
-            return document.title();
-        }
-
-        return "Error while fetching title.";
-
+        try { return faviconService.title(url); }
+        catch (IllegalArgumentException ex) { throw new ClientException(ex.getMessage()); }
     }
 }
